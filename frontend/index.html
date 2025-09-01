@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Bond Tokenization Platform</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" integrity="sha512-..." crossorigin="anonymous"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .success {
+            background-color: #10b981;
+        }
+        .error {
+            background-color: #ef4444;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <div class="container mx-auto p-6">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold mb-2">Dynamic Bond Tokenization Platform</h1>
+            <p class="text-xl opacity-80">Fractional, Permissioned Corporate Bonds on Blockchain</p>
+        </header>
+
+        <div class="grid lg:grid-cols-3 gap-6">
+            <!-- Issuer Portal -->
+            <div class="card rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">🏦 Issuer Portal</h2>
+                <form id="bond-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Bond Name</label>
+                        <input type="text" id="name" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300" placeholder="Demo Bond 2027">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Symbol</label>
+                        <input type="text" id="symbol" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300" placeholder="DB27">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">ISIN</label>
+                        <input type="text" id="isin" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300" placeholder="INE999A00001">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Total Supply</label>
+                            <input type="number" id="total_supply" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white" value="1000000">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Face Value (₹)</label>
+                            <input type="number" id="face_value" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white" value="100">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Coupon Rate (bps)</label>
+                            <input type="number" id="coupon_rate" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white" value="900">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Maturity (years)</label>
+                            <input type="number" id="maturity_years" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white" value="5">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Coupon Frequency (per year)</label>
+                        <input type="number" id="coupon_frequency" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white" value="4">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Custodian Address</label>
+                        <input type="text" id="custodian" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Issuer Address</label>
+                        <input type="text" id="issuer" required class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300">
+                    </div>
+                    <button type="submit" class="w-full btn-primary text-white font-bold py-3 px-4 rounded">
+                        Tokenize Bond
+                    </button>
+                </form>
+                <div id="issuer-result" class="mt-4 hidden"></div>
+            </div>
+
+            <!-- Investor Dashboard -->
+            <div class="card rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">👥 Investor Dashboard</h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Select Bond</label>
+                    <select id="bond-select" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white">
+                        <option value="">Loading bonds...</option>
+                    </select>
+                </div>
+
+                <div id="bond-details" class="hidden mb-4 p-4 bg-white bg-opacity-10 rounded">
+                    <h3 class="font-bold mb-2">Bond Details</h3>
+                    <div id="bond-info"></div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Wallet Address</label>
+                        <input type="text" id="wallet-address" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300" placeholder="0x...">
+                    </div>
+                    <button id="check-balance" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Check Balance
+                    </button>
+                    <div id="balance-result" class="hidden"></div>
+                    
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="claim-coupon" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                            Claim Coupon
+                        </button>
+                        <button id="transfer-tokens" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+                            Transfer
+                        </button>
+                    </div>
+                </div>
+
+                <div id="transfer-form" class="hidden mt-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">To Address</label>
+                        <input type="text" id="transfer-to" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Amount</label>
+                        <input type="number" id="transfer-amount" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white">
+                    </div>
+                    <button id="execute-transfer" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded">
+                        Execute Transfer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Admin/KYC Portal -->
+            <div class="card rounded-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">🔐 Admin/KYC Portal</h2>
+                
+                <div class="space-y-6">
+                    <!-- Whitelist Section -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-2">Whitelist Investor</h3>
+                        <div class="space-y-2">
+                            <input type="text" id="whitelist-address" placeholder="Investor Address" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300">
+                            <input type="text" id="kyc-id" placeholder="KYC ID" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300">
+                            <button id="whitelist-investor" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded">
+                                Whitelist
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Distribution Section -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-2">Token Distribution</h3>
+                        <div class="space-y-2">
+                            <input type="text" id="distribute-to" placeholder="To Address" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white placeholder-gray-300">
+                            <input type="number" id="distribute-amount" placeholder="Amount" class="w-full px-3 py-2 bg-white bg-opacity-20 border border-white border-opacity-30 rounded text-white">
+                            <button id="distribute-tokens" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">
+                                Distribute Tokens
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Coupon Management -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-2">Coupon Management</h3>
+                        <button id="distribute-coupons" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mb-2">
+                            Trigger Coupon Distribution
+                        </button>
+                    </div>
+
+                    <!-- Bond Lifecycle -->
+                    <div>
+                        <h3 class="text-lg font-bold mb-2">Bond Lifecycle</h3>
+                        <button id="mature-bond" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded">
+                            Mark Bond as Mature
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="mt-8 card rounded-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">📊 System Status</h2>
+            <div id="system-status" class="grid md:grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold" id="total-bonds">-</div>
+                    <div class="text-sm opacity-75">Total Bonds</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold" id="network-status">-</div>
+                    <div class="text-sm opacity-75">Network Status</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold" id="latest-block">-</div>
+                    <div class="text-sm opacity-75">Latest Block</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications -->
+        <div id="notifications" class="fixed top-4 right-4 z-50"></div>
+    </div>
+
+    <script>
+        // Global state
+        let bonds = [];
+        let selectedBond = null;
+        let serverAddress = null;
+
+        // API Base URL
+        const API_BASE = window.location.origin + '/api';
+
+        // Utility functions
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `${type} text-white p-4 rounded mb-2 shadow-lg transition-all duration-300`;
+            notification.textContent = message;
+            
+            document.getElementById('notifications').appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        function setLoading(elementId, loading = true) {
+            const element = document.getElementById(elementId);
+            if (loading) {
+                element.classList.add('loading');
+            } else {
+                element.classList.remove('loading');
+            }
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(API_BASE + endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        // Initialize the application
+        async function init() {
+            await loadSystemStatus();
+            await loadBonds();
+            setupEventListeners();
+            
+            // Get server address for form defaults
+            try {
+                const health = await apiCall('/health');
+                serverAddress = health.account;
+                document.getElementById('custodian').value = serverAddress;
+                document.getElementById('issuer').value = serverAddress;
+            } catch (error) {
+                console.error('Failed to get server address:', error);
+            }
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const status = await apiCall('/health');
+                document.getElementById('network-status').textContent = status.status.toUpperCase();
+                document.getElementById('latest-block').textContent = status.latest_block;
+            } catch (error) {
+                document.getElementById('network-status').textContent = 'ERROR';
+                showNotification('Failed to connect to blockchain', 'error');
+            }
+        }
+
+        async function loadBonds() {
+            try {
+                const response = await apiCall('/bonds');
+                bonds = response.bonds;
+                
+                document.getElementById('total-bonds').textContent = bonds.length;
+                
+                const select = document.getElementById('bond-select');
+                select.innerHTML = '<option value="">Select a bond...</option>';
+                
+                bonds.forEach(bond => {
+                    const option = document.createElement('option');
+                    option.value = bond.address;
+                    option.textContent = `${bond.name} (${bond.symbol})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showNotification('Failed to load bonds', 'error');
+            }
+        }
+
+        async function loadBondDetails(address) {
+            if (!address) {
+                document.getElementById('bond-details').classList.add('hidden');
+                return;
+            }
+
+            try {
+                const details = await apiCall(`/bonds/${address}/details`);
+                
+                const info = document.getElementById('bond-info');
+                info.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div><strong>Name:</strong> ${details.name}</div>
+                        <div><strong>Symbol:</strong> ${details.symbol}</div>
+                        <div><strong>ISIN:</strong> ${details.details.isin}</div>
+                        <div><strong>Total Supply:</strong> ${details.totalSupply.toLocaleString()}</div>
+                        <div><strong>Face Value:</strong> ₹${details.details.face_value}</div>
+                        <div><strong>Coupon Rate:</strong> ${details.details.coupon_bps / 100}%</div>
+                        <div><strong>Frequency:</strong> ${details.details.coupon_per_year}/year</div>
+                        <div><strong>Status:</strong> ${details.details.isActive ? 'Active' : 'Matured'}</div>
+                        <div><strong>Period:</strong> ${details.details.currentPeriod}</div>
+                        <div><strong>Maturity:</strong> ${new Date(details.details.maturityDate * 1000).toLocaleDateString()}</div>
+                    </div>
+                `;
+                
+                document.getElementById('bond-details').classList.remove('hidden');
+            } catch (error) {
+                showNotification('Failed to load bond details', 'error');
+            }
+        }
+
+        function setupEventListeners() {
+            // Bond form submission
+            document.getElementById('bond-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await createBond();
+            });
+
+            // Bond selection
+            document.getElementById('bond-select').addEventListener('change', async (e) => {
+                selectedBond = e.target.value;
+                await loadBondDetails(selectedBond);
+            });
+
+            // Balance check
+            document.getElementById('check-balance').addEventListener('click', async () => {
+                await checkBalance();
+            });
+
+            // Coupon claim
+            document.getElementById('claim-coupon').addEventListener('click', async () => {
+                await claimCoupon();
+            });
+
+            // Transfer toggle
+            document.getElementById('transfer-tokens').addEventListener('click', () => {
+                const form = document.getElementById('transfer-form');
+                form.classList.toggle('hidden');
+            });
+
+            // Execute transfer
+            document.getElementById('execute-transfer').addEventListener('click', async () => {
+                await executeTransfer();
+            });
+
+            // Admin functions
+            document.getElementById('whitelist-investor').addEventListener('click', async () => {
+                await whitelistInvestor();
+            });
+
+            document.getElementById('distribute-tokens').addEventListener('click', async () => {
+                await distributeTokens();
+            });
+
+            document.getElementById('distribute-coupons').addEventListener('click', async () => {
+                await distributeCoupons();
+            });
+
+            document.getElementById('mature-bond').addEventListener('click', async () => {
+                await matureBond();
+            });
+        }
+
+        async function createBond() {
+            if (!selectedBond && bonds.length > 0) {
+                showNotification('Please wait for form to initialize...', 'error');
+                return;
+            }
+
+            const formData = {
+                name: document.getElementById('name').value,
+                symbol: document.getElementById('symbol').value,
+                total_supply: parseInt(document.getElementById('total_supply').value),
+                custodian: document.getElementById('custodian').value,
+                issuer: document.getElementById('issuer').value,
+                isin: document.getElementById('isin').value,
+                face_value: parseInt(document.getElementById('face_value').value),
+                coupon_rate: parseInt(document.getElementById('coupon_rate').value),
+                maturity_years: parseInt(document.getElementById('maturity_years').value),
+                coupon_frequency: parseInt(document.getElementById('coupon_frequency').value)
+            };
+
+            try {
+                setLoading('bond-form');
+                showNotification('Creating bond contract...', 'info');
+                
+                const response = await apiCall('/bonds', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
+
+                document.getElementById('issuer-result').innerHTML = `
+                    <div class="bg-green-600 p-4 rounded mt-4">
+                        <h3 class="font-bold">Bond Created Successfully!</h3>
+                        <p><strong>Contract Address:</strong> ${response.address}</p>
+                        <p><strong>Transaction:</strong> ${response.tx}</p>
+                    </div>
+                `;
+                document.getElementById('issuer-result').classList.remove('hidden');
+
+                showNotification('Bond created successfully!', 'success');
+                await loadBonds();
+                document.getElementById('bond-form').reset();
+                
+            } catch (error) {
+                showNotification(`Failed to create bond: ${error.message}`, 'error');
+            } finally {
+                setLoading('bond-form', false);
+            }
+        }
+
+        async function checkBalance() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            const address = document.getElementById('wallet-address').value;
+            if (!address) {
+                showNotification('Please enter wallet address', 'error');
+                return;
+            }
+
+            try {
+                const balance = await apiCall(`/bonds/${selectedBond}/balance/${address}`);
+                const pending = await apiCall(`/bonds/${selectedBond}/coupon/pending/${address}`);
+                
+                document.getElementById('balance-result').innerHTML = `
+                    <div class="bg-blue-600 p-4 rounded">
+                        <p><strong>Token Balance:</strong> ${balance.balance.toLocaleString()}</p>
+                        <p><strong>Pending Coupons:</strong> ₹${pending.pendingCoupons}</p>
+                    </div>
+                `;
+                document.getElementById('balance-result').classList.remove('hidden');
+                
+            } catch (error) {
+                showNotification(`Failed to check balance: ${error.message}`, 'error');
+            }
+        }
+
+        async function claimCoupon() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Claiming coupons...', 'info');
+                const response = await apiCall(`/bonds/${selectedBond}/coupon/claim`, {
+                    method: 'POST'
+                });
+                
+                showNotification('Coupons claimed successfully!', 'success');
+                
+            } catch (error) {
+                showNotification(`Failed to claim coupons: ${error.message}`, 'error');
+            }
+        }
+
+        async function executeTransfer() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            const to = document.getElementById('transfer-to').value;
+            const amount = document.getElementById('transfer-amount').value;
+
+            if (!to || !amount) {
+                showNotification('Please fill all transfer fields', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Executing transfer...', 'info');
+                const response = await apiCall(`/bonds/${selectedBond}/transfer`, {
+                    method: 'POST',
+                    body: JSON.stringify({ to, amount: parseInt(amount) })
+                });
+                
+                showNotification('Transfer completed successfully!', 'success');
+                document.getElementById('transfer-form').classList.add('hidden');
+                
+            } catch (error) {
+                showNotification(`Transfer failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function whitelistInvestor() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            const investor = document.getElementById('whitelist-address').value;
+            const kycId = document.getElementById('kyc-id').value;
+
+            if (!investor || !kycId) {
+                showNotification('Please fill all whitelist fields', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Whitelisting investor...', 'info');
+                const response = await apiCall(`/bonds/${selectedBond}/whitelist`, {
+                    method: 'POST',
+                    body: JSON.stringify({ investor, kycId })
+                });
+                
+                showNotification('Investor whitelisted successfully!', 'success');
+                document.getElementById('whitelist-address').value = '';
+                document.getElementById('kyc-id').value = '';
+                
+            } catch (error) {
+                showNotification(`Whitelist failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function distributeTokens() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            const to = document.getElementById('distribute-to').value;
+            const amount = document.getElementById('distribute-amount').value;
+
+            if (!to || !amount) {
+                showNotification('Please fill all distribution fields', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Distributing tokens...', 'info');
+                const response = await apiCall(`/bonds/${selectedBond}/transfer`, {
+                    method: 'POST',
+                    body: JSON.stringify({ to, amount: parseInt(amount) })
+                });
+                
+                showNotification('Tokens distributed successfully!', 'success');
+                document.getElementById('distribute-to').value = '';
+                document.getElementById('distribute-amount').value = '';
+                
+            } catch (error) {
+                showNotification(`Distribution failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function distributeCoupons() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Distributing coupons...', 'info');
+                const response = await apiCall(`/bonds/${selectedBond}/coupon/distribute`, {
+                    method: 'POST'
+                });
+                
+                showNotification('Coupon distribution triggered!', 'success');
+                await loadBondDetails(selectedBond);
+                
+            } catch (error) {
+                showNotification(`Coupon distribution failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function matureBond() {
+            if (!selectedBond) {
+                showNotification('Please select a bond first', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to mature this bond? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                showNotification('Maturing bond...', 'info');
+                const response = await apiCall(`/bonds/${selectedBond}/mature`, {
+                    method: 'POST'
+                });
+                
+                showNotification('Bond matured successfully!', 'success');
+                await loadBondDetails(selectedBond);
+                
+            } catch (error) {
+                showNotification(`Bond maturation failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Refresh system status every 30 seconds
+        setInterval(loadSystemStatus, 30000);
+    </script>
+</body>
+</html>
