@@ -1,376 +1,230 @@
 # Dynamic Bond Tokenization Platform
 
-A blockchain-based prototype for tokenizing corporate bonds into fractional, KYC-controlled digital assets. The project combines a Solidity smart contract, a Python Flask API, and a browser-based dashboard to simulate issuance, transfer, coupon distribution, and maturity management for bond-backed tokens.
+> **A prototype for exploring permissioned corporate-bond tokens on an Ethereum-compatible blockchain.**
+>
+> Solidity contract · Python/Flask API · Browser dashboard
 
-## Project Overview
+This repository demonstrates a simplified bond lifecycle: deploy a bond token, allowlist investors, transfer tokens, record coupon claims, and mark the bond as matured. It is intended for learning and local development—not for issuing, selling, or servicing real financial securities.
 
-This repository demonstrates how a traditional corporate bond can be represented as a digital token on Ethereum-compatible blockchain infrastructure.
+## At a glance
 
-In plain terms, the platform allows an issuer or custodian to:
+- **Smart contract:** Solidity `BondSecurityToken` with bond metadata, token balances, allowlisting, transfers, coupon bookkeeping, and maturity state.
+- **Backend:** Flask API using Web3.py to read from and submit transactions to an Ethereum-compatible JSON-RPC node.
+- **Frontend:** Single-page HTML/JavaScript dashboard for issuer, investor, and admin demo flows.
+- **Local development:** Designed to be exercised with a local node such as Anvil.
 
-- Create a bond as a tokenized asset
-- Assign contract-level bond metadata such as ISIN, face value, coupon rate, and maturity
-- Restrict participation to KYC-approved investors
-- Distribute tokens to investors
-- Allow transfers between verified wallet addresses
-- Trigger coupon (interest) distribution
-- Track claimable coupon amounts
-- Mature the bond at the end of its lifecycle
+## What the demo shows
 
-The project is designed as a functional prototype and demo environment, not a full production-grade financial platform.
+1. Create a bond contract with an ISIN, face value, coupon rate, maturity, and coupon frequency.
+2. Add investor wallet addresses to the contract allowlist.
+3. Transfer tokens to eligible wallets and inspect balances.
+4. Trigger coupon bookkeeping and view or claim the recorded amount.
+5. Mark the bond as matured once its maturity date has passed.
 
-## Why This Project Exists
+The contract initially allocates the full token supply to the custodian. The server signs transactions with the configured `PRIVATE_KEY`; for the demo, that account must have the appropriate contract role for the action being performed.
 
-Traditional bond investing often involves:
+## Why Solidity?
 
-- Complex onboarding and paperwork
-- Manual custody records
-- Slow settlement cycles
-- Limited liquidity and fractional access
-- Opaque investor participation records
+Solidity is used because the bond's core rules and state need to execute on an Ethereum-compatible blockchain rather than only inside the web server. A smart contract provides a shared, transaction-based record of token balances and bond lifecycle actions, and can enforce permission checks consistently when transactions are submitted.
 
-This platform aims to show how smart contracts can bring transparency, automation, and programmability to bond issuance and servicing. It models a simplified version of a digital bond lifecycle on-chain.
+For this prototype, Solidity makes it possible to demonstrate:
 
-## Core Features
+- **On-chain state:** bond metadata, balances, allowlist status, coupon bookkeeping, and maturity status are stored in the contract.
+- **Enforced rules:** contract functions check the caller's role, investor eligibility, available balance, and bond state before changing state.
+- **Transparent activity:** events such as transfers, allowlisting, coupon distribution, claims, and maturity can be inspected from transaction logs.
+- **EVM compatibility:** the contract can be compiled with Solidity 0.8.19 and deployed to Anvil or other compatible networks.
 
-### 1. Tokenized Bond Issuance
-The system deploys a Solidity contract representing a corporate bond. The issuer provides metadata such as:
-
-- bond name and symbol
-- total token supply
--isin identifier
-- face value
-- coupon rate
-- maturity period
-- coupon frequency
-- custodian and issuer wallet addresses
-
-### 2. Investor KYC / Access Control
-The smart contract contains allowlist and blacklist mappings.
-
-- Only allowlisted addresses can transfer or receive tokens
-- KYC IDs are stored against investor wallet addresses
-- Blacklisted investors cannot participate
-
-### 3. Coupon / Interest Management
-The project includes logic for coupon distribution based on bond parameters.
-
-- Coupons are calculated from the face value and rate
-- Distribution is time-gated by the configured frequency
-- Investors can check pending coupon amounts
-- Investors can claim their due coupons
-
-### 4. Transfer and Ownership Tracking
-The token supports standard-like transfer behavior, including:
-
-- balance checks
-- transfers between verified addresses
-- approvals and transfers via allowance
-
-### 5. Lifecycle Management
-The bond can be matured when the configured maturity date is reached.
-
-- active vs matured state
-- event emissions for lifecycle changes
-- simplified principal settlement modeling
-
-### 6. Demo UI and API
-The project exposes a Python Flask API and a front-end dashboard that lets users:
-
-- create a bond
-- choose a bond from a registry
-- whitelist investors
-- check balances
-- transfer tokens
-- trigger coupon distribution
-- mature the bond
+Solidity does not itself verify a person's identity or settle a real-world bond. In this application, KYC is represented by an administrator-managed allowlist, and coupon claims are bookkeeping only. See [Important prototype limitations](#important-prototype-limitations).
 
 ## Architecture
 
-The project follows a simple three-layer architecture:
+```text
+┌──────────────────────────────┐
+│ Browser dashboard            │
+│ frontend/index.html          │
+└──────────────┬───────────────┘
+               │ HTTP / JSON
+               ▼
+┌──────────────────────────────┐
+│ Flask API                    │
+│ scripts/server.py            │
+│ - serves the dashboard       │
+│ - validates inputs           │
+│ - reads/signs chain calls    │
+│ - stores local bond registry │
+└──────────────┬───────────────┘
+               │ JSON-RPC (Web3.py)
+               ▼
+┌──────────────────────────────┐
+│ Ethereum-compatible node     │
+│ e.g. local Anvil             │
+└──────────────┬───────────────┘
+               │
+               ▼
+┌──────────────────────────────┐
+│ BondSecurityToken.sol        │
+│ deployed bond token contract │
+└──────────────────────────────┘
+```
 
-### 1. Smart Contract Layer
-Location: `BondSecurityToken.sol`
+### Main components
 
-This is the core business logic of the platform. The contract handles:
+| Component | Location | Responsibility |
+| --- | --- | --- |
+| Bond contract | `BondSecurityToken.sol` | Stores bond and token state; enforces allowlist and role checks; emits lifecycle events. |
+| Compiler script | `scripts/compile.py` | Compiles the Solidity source with Solidity 0.8.19 and writes ABI/bytecode to `build/`. |
+| API server | `scripts/server.py` | Serves the UI and API, connects to the configured RPC, deploys contracts, and submits signed transactions. |
+| Dashboard | `frontend/index.html` | Provides forms and views for bond creation, balances, transfers, allowlisting, coupons, and maturity. |
+| Local registry | `data/registry.json` | Stores a local list of bond deployments known to the server. It is not an authoritative on-chain registry. |
 
-- token issuance
-- investor KYC access control
-- token transfers
-- coupon calculations
-- bond maturity
-- events for transparency
+## Frontend dashboard
 
-The contract stores essential bond data in a `BondDetails` struct and manages permissioned investor access through mappings.
+The frontend is a single HTML page at `frontend/index.html`. It calls the Flask API at the same origin and presents the demo workflows in three panels:
 
-### 2. Backend API Layer
-Location: `scripts/server.py`
+- **Issuer Portal:** enter bond name, symbol, ISIN, supply, face value, coupon rate, maturity, coupon frequency, custodian, and issuer; submit the form to deploy a contract.
+- **Investor Dashboard:** select a registered bond, inspect bond details, check a wallet's token balance and pending coupon amount, claim coupons, or transfer tokens.
+- **Admin/KYC Portal:** allowlist an investor with a KYC ID, distribute tokens, trigger coupon bookkeeping, and request maturity.
+- **System Status:** display the bond count, network status, and latest block number. The page refreshes network status periodically.
 
-This Python Flask application is the bridge between the frontend and blockchain.
+The dashboard reports success or errors as notifications and displays the newly deployed contract address and transaction hash after bond creation. Its controls are a demo interface; actions still depend on the backend's configured signing account and the access rules in the contract.
 
-Responsibilities include:
+## What output to expect
 
-- connecting to an Ethereum-compatible node (Anvil/local RPC)
-- compiling and loading contract artifacts
-- deploying bond contracts
-- reading contract state
-- sending transactions with signed wallet keys
-- serving API endpoints for UI interactions
-- maintaining a local registry file for known bond deployments
+When the application starts successfully, the backend logs its RPC URL, chain ID, signer address, and latest block (when the node is reachable). The browser opens the dashboard at `http://localhost:5000`.
 
-This API is designed to work with a local blockchain node and a funded wallet account.
+After a successful bond deployment, the UI shows:
 
-### 3. Frontend UI Layer
-Location: `frontend/index.html`
+- the deployed contract address
+- the deployment transaction hash
+- the new bond in the bond selector (after the list refreshes)
 
-The front-end is a single-page dashboard with three main sections:
+The API's `GET /api/health` response includes status, RPC URL, latest block, configured account, chain ID, and timestamp. Contract actions return transaction hashes on success. The contract emits events such as `Transfer`, `InvestorWhitelisted`, `CouponDistributed`, `CouponClaimed`, and `BondMatured` for transaction-level inspection.
 
-- Issuer portal: create a new bond
-- Investor dashboard: view balances, pending coupons, and transfer assets
-- Admin/KYC portal: whitelist investors, distribute tokens, manage coupons, and mature bonds
+Compilation generates these local artifacts:
 
-It uses Tailwind CSS for styling and fetches data from the Flask backend.
+```text
+build/BondSecurityToken.abi.json
+build/BondSecurityToken.bin
+```
 
-## Repository Structure
+The application stores its local bond list in `data/registry.json` when the backend creates deployments.
+
+## Repository layout
 
 ```text
 .
-├── BondSecurityToken.sol          # Main Solidity bond token contract
-├── .env.template                  # Sample environment configuration
-├── .env                          # Local environment values (not usually committed)
-├── requirements.txt               # Python dependency list
-├── setup.sh                       # Environment setup script
-├── run.sh                        # Runs the app and validates blockchain connectivity
-├── debug.sh                      # Debug helper script
-├── build/                        # Generated ABI and bytecode artifacts
-├── data/                         # Local registry storage for deployed bonds
+├── BondSecurityToken.sol       # Solidity contract
 ├── frontend/
-│   └── index.html                # Browser UI for the platform
+│   └── index.html              # Browser dashboard
 ├── scripts/
-│   ├── compile.py                 # Compiles the Solidity contract
-│   └── server.py                  # Flask backend that interacts with blockchain
-└── README.md                     # Project documentation
+│   ├── compile.py              # Solidity compiler wrapper
+│   └── server.py               # Flask API and Web3 integration
+├── build/                      # Generated ABI and bytecode
+├── data/                       # Local registry data (created at runtime)
+├── .env.template               # Environment variable example
+├── requirements.txt            # Python dependencies
+├── setup.sh                    # Setup helper
+├── run.sh                      # Compile and start helper
+├── debug.sh                    # Debug helper
+└── README.md                   # Project documentation
 ```
 
-## Smart Contract Design
+## Quick start (local demo)
 
-The main contract, `BondSecurityToken`, includes these core components:
-
-### State Variables
-- `name`, `symbol`, `decimals`, `totalSupply`
-- investor balances and allowance mappings
-- allowlist and blacklist mappings
-- bond metadata structure
-- owner, custodian, issuer addresses
-- coupon tracking variables
-
-### Bond Metadata
-The `BondDetails` struct stores:
-
-- ISIN
-- face value
-- coupon rate
-- issue date
-- maturity date
-- coupon frequency
-- active/inactive status
-
-### Access Control
-The contract uses modifiers such as:
-
-- `onlyOwner`
-- `onlyCustodian`
-- `onlyAllowlisted(address account)`
-- `bondActive`
-
-These enforce permission rules across issuance, transfers, coupon operations, and maturity.
-
-### Events
-The contract emits events such as:
-
-- `Transfer`
-- `Approval`
-- `InvestorWhitelisted`
-- `InvestorBlacklisted`
-- `CouponDistributed`
-- `CouponClaimed`
-- `BondMatured`
-- `TransferBlocked`
-
-These are useful for monitoring transaction flow and debugging the bond lifecycle.
-
-## Workflow
-
-A typical flow in this project is:
-
-1. Start a local blockchain node such as Anvil.
-2. Configure the environment variables in `.env`.
-3. Compile the contract with `scripts/compile.py`.
-4. Launch the Flask backend.
-5. Open the frontend dashboard.
-6. Create a bond from the Issuer Portal.
-7. Whitelist KYC-approved investors.
-8. Distribute tokens to investor wallets.
-9. Check balances and pending coupons.
-10. Trigger coupon distribution for the bond.
-11. Allow investors to claim coupons.
-12. Mature the bond when the term ends.
-
-## Environment Requirements
-
-The project depends on:
+### Prerequisites
 
 - Python 3
-- Node/Anvil-compatible Ethereum local environment
-- An installed wallet private key for the deployer account
-- RPC access to a blockchain node
+- [Foundry](https://getfoundry.sh/) installed so you can run Anvil
+- A local Anvil account and its private key
 
-## Required Python Dependencies
+> Use only disposable local-development keys. Never use a real wallet key or fund a demo account with valuable assets.
 
-See `requirements.txt`:
-
-- Flask
-- Flask-CORS
-- web3
-- eth-account
-- py-solc-x
-- python-dotenv
-
-## Setup Instructions
-
-### 1. Clone the repository
+### 1. Clone and install Python dependencies
 
 ```bash
 git clone https://github.com/sanjayofficialworks-ai/tokenisation.git
 cd tokenisation
-```
-
-### 2. Create a virtual environment and install dependencies
-
-```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment variables
+### 2. Start Anvil
 
-```bash
-cp .env.template .env
-```
-
-Then fill in values like:
-
-```env
-RPC_URL=http://127.0.0.1:8545
-CHAIN_ID=31337
-PORT=5000
-PRIVATE_KEY=your_anvil_account_0_private_key_here
-```
-
-### 4. Start a local blockchain node
+In a separate terminal:
 
 ```bash
 anvil
 ```
 
-### 5. Compile the contract
+Use the RPC URL, chain ID, and a private key printed by Anvil for the local demo.
+
+### 3. Configure the environment
 
 ```bash
-python3 scripts/compile.py
+cp .env.template .env
 ```
 
-### 6. Run the platform
+Edit `.env` with the local Anvil account values:
+
+```dotenv
+RPC_URL=http://127.0.0.1:8545
+CHAIN_ID=31337
+PORT=5000
+PRIVATE_KEY=<local-anvil-private-key>
+```
+
+Keep `.env` and private keys out of version control. The backend uses this private key to sign blockchain transactions.
+
+### 4. Compile and start the application
+
+The compiler installs/uses Solidity 0.8.19 through `py-solc-x` and generates artifacts under `build/`.
 
 ```bash
-./run.sh
+python scripts/compile.py
+python scripts/server.py
 ```
 
-or manually:
+Open <http://localhost:5000> in your browser. The API health check is at <http://localhost:5000/api/health>.
 
-```bash
-source .venv/bin/activate
-python3 scripts/server.py
-```
+`run.sh` is also available as a convenience runner. It expects a `.venv` virtual environment, a populated `.env`, a reachable RPC node, and the generated build artifacts. The standalone commands above make each step explicit.
 
-Then open:
+## API routes
 
-```text
-http://localhost:5000
-```
+The UI uses the following Flask API routes:
 
-## API Overview
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Check server/RPC status and report chain information. |
+| `GET` | `/api/bonds` | List bond entries in the local registry. |
+| `POST` | `/api/bonds` | Deploy a bond contract and add it to the local registry. |
+| `GET` | `/api/bonds/<address>/details` | Read token and bond details from a deployed contract. |
+| `GET` | `/api/bonds/<address>/balance/<holder>` | Read a holder's token balance. |
+| `POST` | `/api/bonds/<address>/whitelist` | Add an investor to the contract allowlist. |
+| `POST` | `/api/bonds/<address>/transfer` | Submit a token transfer. |
+| `POST` | `/api/bonds/<address>/coupon/distribute` | Trigger coupon accounting on the contract. |
+| `POST` | `/api/bonds/<address>/coupon/claim` | Record a coupon claim for the server transaction signer. |
+| `GET` | `/api/bonds/<address>/coupon/pending/<holder>` | Read a holder's pending coupon amount. |
+| `POST` | `/api/bonds/<address>/mature` | Submit the bond maturity operation. |
 
-The backend exposes several endpoints for the bond management process.
+## Important prototype limitations
 
-### Health check
-- `GET /api/health`
+This is a proof-of-concept, not a production financial application. In particular:
 
-### Bond registry
-- `GET /api/bonds`
-- `POST /api/bonds`
+- Coupon distribution and claims update contract bookkeeping; **they do not transfer money, stablecoins, or fiat**.
+- Maturity changes the contract's active state; **the current contract does not repay principal or burn tokens**.
+- KYC is represented by an allowlist and an identifier string. The application does not perform identity verification or provide a compliance service.
+- The backend uses one configured private key to sign transactions. It is a trusted demo server, not a user-controlled wallet integration or production custody design.
+- The bond registry is a local JSON file and can be lost or changed independently of the blockchain.
+- The contract and application have not been presented as audited or legally compliant. Do not use them to issue or trade real securities.
 
-### Bond information
-- `GET /api/bonds/<address>/details`
-- `GET /api/bonds/<address>/balance/<holder>`
+Before any real-world use, the system would need independent smart-contract and application security reviews, appropriate legal/regulatory analysis, secure key custody, real settlement and payment integrations, robust identity/compliance processes, and production-grade infrastructure.
 
-### Investor actions
-- `POST /api/bonds/<address>/whitelist`
-- `POST /api/bonds/<address>/transfer`
-- `POST /api/bonds/<address>/coupon/distribute`
-- `POST /api/bonds/<address>/coupon/claim`
-- `GET /api/bonds/<address>/coupon/pending/<holder>`
-- `POST /api/bonds/<address>/mature`
+## Technology
 
-These endpoints are designed to be consumed by the frontend dashboard and can also be used for direct testing.
-
-## Security and Production Readiness Notes
-
-This project is a learning and demonstration prototype. It is not intended as a production-ready financial system.
-
-Important considerations for a real deployment include:
-
-- formal security audits of the Solidity code
-- secure custody and key management
-- robust KYC and AML compliance processes
-- legal/regulatory review for financial instruments
-- stablecoin or fiat settlement rails
-- multi-signature governance for protocol administration
-- proper monitoring and alerting infrastructure
-- production-grade RPC, database, and deployment architecture
-
-## Limitations in the Current Implementation
-
-Some business logic is simplified for demo purposes, including:
-
-- the coupon claim mechanism is recorded on-chain rather than fully integrated with real payment settlement
-- the bond lifecycle is not tied to an external real-world bond registry
-- investor onboarding is modeled as a simple allowlist workflow
-- there is no mature identity, compliance, or audit backend
-
-## Use Cases
-
-This project is useful for:
-
-- blockchain education
-- smart-contract demos
-- digital securities prototyping
-- bond tokenization workshops
-- financial product concept validation
-
-## Summary
-
-This repository demonstrates a simplified digital bond platform where corporate debt is represented as a blockchain token with ownership, coupon logic, compliance checks, and lifecycle controls. It combines Solidity, Python, and a lightweight front-end dashboard to model the full workflow of issuance and servicing in an accessible, demo-friendly format.
-
-## License
-
-No explicit license file is currently present in the repository, so license terms should be confirmed before reuse or distribution.
-
----
-
-If you want, I can also add:
-
-- a more polished project logo section
-- screenshots or architecture diagram text
-- a section for contributors and roadmap
-- a version tailored for GitHub presentation with badges and quick-start commands
+- Solidity `^0.8.19`
+- Python and Flask
+- Web3.py and `eth-account`
+- `py-solc-x`
+- HTML, JavaScript, and Tailwind CSS
+- Anvil for local blockchain development
